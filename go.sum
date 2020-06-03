@@ -70,6 +70,8 @@ github.com/fjl/memsize v0.0.0-20180418122429-ca190fb6ffbc/go.mod h1:VvhXpOYNQvB+
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
 github.com/gagarinchain/common v0.1.1 h1:oxa+XUxaErJiy8nUQl72gm1vH/oRWY2o7zuaVh3S61k=
 github.com/gagarinchain/common v0.1.1/go.mod h1:CeNMeewd/iaIFcvL4TqUGw0LzeyWDtQ/IlKUavw1NkA=
+github.com/gagarinchain/common v0.1.2 h1:bkglxTbL/snjn2jFGPtSqWK6NI9YvcWntt67oPDI+Ug=
+github.com/gagarinchain/common v0.1.2/go.mod h1:FVfgF1QmYthUU+KfKpFxD2agpOUhqx6oBR+PUdup7Y4=
 github.com/gballet/go-libpcsclite v0.0.0-20190607065134-2772fd86a8ff h1:tY80oXqGNY4FhTFhk+o9oFHGINQ/+vhlm8HFzi6znCI=
 github.com/gballet/go-libpcsclite v0.0.0-20190607065134-2772fd86a8ff/go.mod h1:x7DCsMOv1taUwEWCzT4cmDeAkigA5/QCwUodaVOe8Ww=
 github.com/go-kit/kit v0.8.0/go.mod h1:xBxKIO96dXMWWy0MnWVtmwkA9/13aqxPnvrjFYMA2as=
