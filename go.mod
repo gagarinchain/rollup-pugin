@@ -1,4 +1,4 @@
-module github.com/gagarinchain/rollups
+module github.com/gagarinchain/rollup-plugin
 
 require (
 	github.com/emirpasic/gods v1.12.0
