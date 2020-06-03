@@ -8,11 +8,16 @@ import (
 	pb "github.com/gagarinchain/rollup-plugin/protobuff"
 	"github.com/golang/protobuf/proto"
 	"math/big"
+	"os"
 	"time"
 )
 
 func main() {
-	auth, instance := initEth(ReadSettings())
+	settingsPath, found := os.LookupEnv("ROLLUP_SETTINGS")
+	if !found {
+		settingsPath = "static/settings.yaml"
+	}
+	auth, instance := initEth(ReadSettings(settingsPath))
 
 	account1 := common2.HexToAddress("0x331BcCEb099D3A66e1921C4e434FCBeF853e2B30")
 	account2 := common2.HexToAddress("0xd166319B7eBa5DA39882b2B6D17E907801a77234")

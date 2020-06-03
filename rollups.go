@@ -22,10 +22,9 @@ import (
 )
 
 var log = logging.MustGetLogger("rollups")
-var RollupsPlugin = initPlugin()
 
-func initPlugin() *rollupsPlugin {
-	settings := ReadSettings()
+func InitPlugin(settingsPath string) *rollupsPlugin {
+	settings := ReadSettings(settingsPath)
 	opts, e := initEth(settings)
 
 	return &rollupsPlugin{
@@ -46,6 +45,10 @@ type rollupsPlugin struct {
 	settings *Settings
 	txOpts   *bind.TransactOpts
 	eth      *eth.Eth
+}
+
+func NewRollupsPlugin(settings *Settings, txOpts *bind.TransactOpts, eth *eth.Eth) *rollupsPlugin {
+	return &rollupsPlugin{settings: settings, txOpts: txOpts, eth: eth}
 }
 
 func (r *rollupsPlugin) OnBlockCommit(bc api.Blockchain, block api.Block, orphans *treemap.Map) error {
@@ -234,12 +237,7 @@ func initEth(s *Settings) (*bind.TransactOpts, *eth.Eth) {
 	return auth, instance
 }
 
-func ReadSettings() (s *Settings) {
-	settingsPath, found := os.LookupEnv("ROLLUP_SETTINGS")
-	if !found {
-		settingsPath = "static/settings.yaml"
-	}
-
+func ReadSettings(settingsPath string) (s *Settings) {
 	file, e := os.Open(settingsPath)
 	if e != nil {
 		log.Error("Can't load settings, using default", e)
