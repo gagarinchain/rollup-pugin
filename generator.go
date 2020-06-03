@@ -1,11 +1,11 @@
-package main
+package rollups
 
 import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gagarinchain/common/api"
 	common2 "github.com/gagarinchain/common/eth/common"
-	pb "github.com/gagarinchain/rollups/protobuff"
+	pb "github.com/gagarinchain/rollup-plugin/protobuff"
 	"github.com/golang/protobuf/proto"
 	"math/big"
 	"time"

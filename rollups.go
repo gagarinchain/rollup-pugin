@@ -1,4 +1,4 @@
-package main
+package rollups
 
 import (
 	"bytes"
@@ -11,8 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/gagarinchain/common/api"
-	"github.com/gagarinchain/rollups/eth"
-	pb "github.com/gagarinchain/rollups/protobuff"
+	"github.com/gagarinchain/rollup-plugin/eth"
+	pb "github.com/gagarinchain/rollup-plugin/protobuff"
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
 	"gopkg.in/yaml.v2"
