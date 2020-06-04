@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/gagarinchain/common/api"
 	"github.com/gagarinchain/rollup-plugin/eth"
-	pb "github.com/gagarinchain/rollup-plugin/protobuff/gagarin/rollups/pb"
+	pb "github.com/gagarinchain/rollup-plugin/protobuff"
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
 	"gopkg.in/yaml.v2"
