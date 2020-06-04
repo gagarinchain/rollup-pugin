@@ -5,7 +5,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gagarinchain/common/api"
 	common2 "github.com/gagarinchain/common/eth/common"
-	pb "github.com/gagarinchain/rollup-plugin/protobuff"
+	pb "github.com/gagarinchain/rollup-plugin/protobuff/gagarin/rollups/pb"
 	"github.com/golang/protobuf/proto"
 	"math/big"
 	"os"

@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/gagarinchain/common/api"
 	"github.com/gagarinchain/rollup-plugin/eth"
-	pb "github.com/gagarinchain/rollup-plugin/protobuff"
+	pb "github.com/gagarinchain/rollup-plugin/protobuff/gagarin/rollups/pb"
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
 	"gopkg.in/yaml.v2"
@@ -143,6 +143,7 @@ func (r *rollupsPlugin) AfterVoted(pacer api.Pacer, bc api.Blockchain, vote api.
 }
 
 func (r *rollupsPlugin) OnBlockCreated(bc api.Blockchain, blockBuilder api.BlockBuilder, receipts []api.Receipt) error {
+	log.Debug("Creating rollup")
 	addresses, txs := r.createRollups(receipts)
 	rollup := &pb.Rollup{
 		Accounts:     addresses,

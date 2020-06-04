@@ -1,8 +1,5 @@
 syntax = "proto3";
-option go_package = "pb";
-
-import "google/protobuf/any.proto";
-
+option go_package = "gagarin/rollups/pb";
 message Rollup {
     repeated bytes accounts = 1;
     repeated Transaction transactions = 2;
