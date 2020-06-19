@@ -1,4 +1,6 @@
 syntax = "proto3";
+package gagarin.network.rollups;
+
 option go_package = "gagarin.rollups.pb";
 message Rollup {
     repeated bytes accounts = 1;

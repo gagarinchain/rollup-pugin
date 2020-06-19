@@ -12,12 +12,11 @@ protos:
 abi:
 	abigen --abi eth/rollup.abi --pkg eth --out eth/api.go
 build:
-	$(GOBUILD) -buildmode=plugin -trimpath -o $(BINARY_NAME).so .
-	chmod 775 $(BINARY_NAME).so
+	$(GOBUILD) -o $(BINARY_NAME) -v .
+	chmod 775 $(BINARY_NAME)
 docker:
-	export DOCKER_BUILDKIT=1
-	docker build -o out .
-	chmod 775 ./out/$(BINARY_NAME).so
+	export DOCKER_BUILDKIT=0
+	docker build .
 test:
 	$(GOTEST) -v ./...
 clean:

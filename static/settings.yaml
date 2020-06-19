@@ -1,4 +1,10 @@
 Rollups:
-  ContractAddress: 0x99376b8631f733A05e22FC9C38Af4c1169E58f4b
-  URL: http://127.0.0.1:7545
-  PrivateKey: afe2a7eaddbac8cecd3e6b45271661a54bf438d1998e09be8466a933d2daac5b
+  ContractAddress: 0x33d4121640086377081b0d5A3F2DA6b615Ed2188
+  URL: http://192.168.1.189:8545
+  PrivateKey: 9faf60d0af62a781184c70874d1f2df7f65bf020f906643e6cec5961f922a850
+  Network:
+    Address: 172.18.0.10:9280
+    MaxConcurrentStreams: 10
+  Server:
+    Address: 172.18.0.99:9380
+    MaxConcurrentStreams: 10

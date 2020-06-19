@@ -27,7 +27,7 @@ var (
 )
 
 // EthABI is the input ABI used to generate the binding from.
-const EthABI = "[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"owner\",\"type\":\"address\"},{\"indexed\":false,\"name\":\"balance\",\"type\":\"int64\"}],\"name\":\"BalanceChanged\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"tranIndex\",\"type\":\"uint256\"}],\"name\":\"Transaction\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"blockCount\",\"type\":\"uint256\"}],\"name\":\"Received\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"eight\",\"type\":\"int32\"}],\"name\":\"TopHeightUpdate\",\"type\":\"event\"},{\"constant\":true,\"inputs\":[],\"name\":\"getTopHeight\",\"outputs\":[{\"name\":\"\",\"type\":\"int32\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"header\",\"type\":\"bytes\"},{\"name\":\"rollup\",\"type\":\"bytes\"}],\"name\":\"addBlock\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"b\",\"type\":\"bytes\"}],\"name\":\"bytesToAddress\",\"outputs\":[{\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"}]"
+const EthABI = "[{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"committee\",\"outputs\":[{\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"name\":\"c\",\"type\":\"address[]\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"owner\",\"type\":\"address\"},{\"indexed\":false,\"name\":\"balance\",\"type\":\"int64\"}],\"name\":\"BalanceChanged\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"tranIndex\",\"type\":\"uint256\"}],\"name\":\"Transaction\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"blockCount\",\"type\":\"uint256\"}],\"name\":\"Received\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"eight\",\"type\":\"int32\"}],\"name\":\"TopHeightUpdate\",\"type\":\"event\"},{\"constant\":true,\"inputs\":[],\"name\":\"getTopHeight\",\"outputs\":[{\"name\":\"\",\"type\":\"int32\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"header\",\"type\":\"bytes\"},{\"name\":\"rollup\",\"type\":\"bytes\"}],\"name\":\"addBlock\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"owner\",\"type\":\"address\"}],\"name\":\"getBalance\",\"outputs\":[{\"name\":\"\",\"type\":\"int64\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"_b\",\"type\":\"bytes\"}],\"name\":\"tb20\",\"outputs\":[{\"name\":\"_result\",\"type\":\"bytes20\"}],\"payable\":false,\"stateMutability\":\"pure\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_b\",\"type\":\"bytes\"}],\"name\":\"bytesToAddress\",\"outputs\":[{\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]"
 
 // Eth is an auto generated Go binding around an Ethereum contract.
 type Eth struct {
@@ -171,30 +171,56 @@ func (_Eth *EthTransactorRaw) Transact(opts *bind.TransactOpts, method string, p
 	return _Eth.Contract.contract.Transact(opts, method, params...)
 }
 
-// BytesToAddress is a free data retrieval call binding the contract method 0x42526e4e.
+// Committee is a free data retrieval call binding the contract method 0xafe7fcf4.
 //
-// Solidity: function bytesToAddress(bytes b) constant returns(address)
-func (_Eth *EthCaller) BytesToAddress(opts *bind.CallOpts, b []byte) (common.Address, error) {
+// Solidity: function committee(uint256 ) constant returns(address)
+func (_Eth *EthCaller) Committee(opts *bind.CallOpts, arg0 *big.Int) (common.Address, error) {
 	var (
 		ret0 = new(common.Address)
 	)
 	out := ret0
-	err := _Eth.contract.Call(opts, out, "bytesToAddress", b)
+	err := _Eth.contract.Call(opts, out, "committee", arg0)
 	return *ret0, err
 }
 
-// BytesToAddress is a free data retrieval call binding the contract method 0x42526e4e.
+// Committee is a free data retrieval call binding the contract method 0xafe7fcf4.
 //
-// Solidity: function bytesToAddress(bytes b) constant returns(address)
-func (_Eth *EthSession) BytesToAddress(b []byte) (common.Address, error) {
-	return _Eth.Contract.BytesToAddress(&_Eth.CallOpts, b)
+// Solidity: function committee(uint256 ) constant returns(address)
+func (_Eth *EthSession) Committee(arg0 *big.Int) (common.Address, error) {
+	return _Eth.Contract.Committee(&_Eth.CallOpts, arg0)
 }
 
-// BytesToAddress is a free data retrieval call binding the contract method 0x42526e4e.
+// Committee is a free data retrieval call binding the contract method 0xafe7fcf4.
 //
-// Solidity: function bytesToAddress(bytes b) constant returns(address)
-func (_Eth *EthCallerSession) BytesToAddress(b []byte) (common.Address, error) {
-	return _Eth.Contract.BytesToAddress(&_Eth.CallOpts, b)
+// Solidity: function committee(uint256 ) constant returns(address)
+func (_Eth *EthCallerSession) Committee(arg0 *big.Int) (common.Address, error) {
+	return _Eth.Contract.Committee(&_Eth.CallOpts, arg0)
+}
+
+// GetBalance is a free data retrieval call binding the contract method 0xf8b2cb4f.
+//
+// Solidity: function getBalance(address owner) constant returns(int64)
+func (_Eth *EthCaller) GetBalance(opts *bind.CallOpts, owner common.Address) (int64, error) {
+	var (
+		ret0 = new(int64)
+	)
+	out := ret0
+	err := _Eth.contract.Call(opts, out, "getBalance", owner)
+	return *ret0, err
+}
+
+// GetBalance is a free data retrieval call binding the contract method 0xf8b2cb4f.
+//
+// Solidity: function getBalance(address owner) constant returns(int64)
+func (_Eth *EthSession) GetBalance(owner common.Address) (int64, error) {
+	return _Eth.Contract.GetBalance(&_Eth.CallOpts, owner)
+}
+
+// GetBalance is a free data retrieval call binding the contract method 0xf8b2cb4f.
+//
+// Solidity: function getBalance(address owner) constant returns(int64)
+func (_Eth *EthCallerSession) GetBalance(owner common.Address) (int64, error) {
+	return _Eth.Contract.GetBalance(&_Eth.CallOpts, owner)
 }
 
 // GetTopHeight is a free data retrieval call binding the contract method 0x221068ae.
@@ -223,6 +249,32 @@ func (_Eth *EthCallerSession) GetTopHeight() (int32, error) {
 	return _Eth.Contract.GetTopHeight(&_Eth.CallOpts)
 }
 
+// Tb20 is a free data retrieval call binding the contract method 0xb43dd9c8.
+//
+// Solidity: function tb20(bytes _b) constant returns(bytes20 _result)
+func (_Eth *EthCaller) Tb20(opts *bind.CallOpts, _b []byte) ([20]byte, error) {
+	var (
+		ret0 = new([20]byte)
+	)
+	out := ret0
+	err := _Eth.contract.Call(opts, out, "tb20", _b)
+	return *ret0, err
+}
+
+// Tb20 is a free data retrieval call binding the contract method 0xb43dd9c8.
+//
+// Solidity: function tb20(bytes _b) constant returns(bytes20 _result)
+func (_Eth *EthSession) Tb20(_b []byte) ([20]byte, error) {
+	return _Eth.Contract.Tb20(&_Eth.CallOpts, _b)
+}
+
+// Tb20 is a free data retrieval call binding the contract method 0xb43dd9c8.
+//
+// Solidity: function tb20(bytes _b) constant returns(bytes20 _result)
+func (_Eth *EthCallerSession) Tb20(_b []byte) ([20]byte, error) {
+	return _Eth.Contract.Tb20(&_Eth.CallOpts, _b)
+}
+
 // AddBlock is a paid mutator transaction binding the contract method 0xf358de12.
 //
 // Solidity: function addBlock(bytes header, bytes rollup) returns()
@@ -242,6 +294,27 @@ func (_Eth *EthSession) AddBlock(header []byte, rollup []byte) (*types.Transacti
 // Solidity: function addBlock(bytes header, bytes rollup) returns()
 func (_Eth *EthTransactorSession) AddBlock(header []byte, rollup []byte) (*types.Transaction, error) {
 	return _Eth.Contract.AddBlock(&_Eth.TransactOpts, header, rollup)
+}
+
+// BytesToAddress is a paid mutator transaction binding the contract method 0x42526e4e.
+//
+// Solidity: function bytesToAddress(bytes _b) returns(address)
+func (_Eth *EthTransactor) BytesToAddress(opts *bind.TransactOpts, _b []byte) (*types.Transaction, error) {
+	return _Eth.contract.Transact(opts, "bytesToAddress", _b)
+}
+
+// BytesToAddress is a paid mutator transaction binding the contract method 0x42526e4e.
+//
+// Solidity: function bytesToAddress(bytes _b) returns(address)
+func (_Eth *EthSession) BytesToAddress(_b []byte) (*types.Transaction, error) {
+	return _Eth.Contract.BytesToAddress(&_Eth.TransactOpts, _b)
+}
+
+// BytesToAddress is a paid mutator transaction binding the contract method 0x42526e4e.
+//
+// Solidity: function bytesToAddress(bytes _b) returns(address)
+func (_Eth *EthTransactorSession) BytesToAddress(_b []byte) (*types.Transaction, error) {
+	return _Eth.Contract.BytesToAddress(&_Eth.TransactOpts, _b)
 }
 
 // EthBalanceChangedIterator is returned from FilterBalanceChanged and is used to iterate over the raw logs and unpacked data for BalanceChanged events raised by the Eth contract.
