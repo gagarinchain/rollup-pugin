@@ -6,7 +6,7 @@ import (
 )
 
 func Balance(s *Settings, a string) {
-	_, instance, _, _ := InitEth(s)
+	_, instance, _, _, _ := InitEth(s)
 	log.Info(a)
 	address := common.HexToAddress(a)
 	balance, err := instance.GetBalance(&bind.CallOpts{}, address)

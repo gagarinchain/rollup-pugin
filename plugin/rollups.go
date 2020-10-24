@@ -10,16 +10,21 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/gagarinchain/common/api"
+	crypto_g "github.com/gagarinchain/common/eth/crypto"
 	common_pb "github.com/gagarinchain/common/protobuff"
 	"github.com/gagarinchain/common/rpc"
-	"github.com/gagarinchain/rollup-plugin/eth"
+	"github.com/gagarinchain/network/blockchain/tx"
+	"github.com/gagarinchain/rollup-plugin/gateway"
 	pb "github.com/gagarinchain/rollup-plugin/protobuff"
+	"github.com/gagarinchain/rollup-plugin/rollup"
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
 	"google.golang.org/grpc"
 	"math/big"
 	"net"
 	"sort"
+	"time"
 )
 
 var log = logging.MustGetLogger("rollups")
@@ -30,6 +35,8 @@ type Settings struct {
 		BlockchainService string `yaml:"BlockchainService"`
 		URL               string `yaml:"URL"`
 		PrivateKey        string `yaml:"PrivateKey"`
+		G_PrivateKey      string `yaml:"G_PrivateKey"`
+		Confirmations     uint32 `yaml:"Confirmations"`
 		Network           struct {
 			Address              string `yaml:"Address"`
 			MaxConcurrentStreams uint32 `yaml:"MaxConcurrentStreams"`
@@ -45,11 +52,14 @@ type RollupsPlugin struct {
 	common_pb.OnBlockCommitServer
 	common_pb.OnReceiveProposalServer
 	common_pb.OnNewBlockCreatedServer
-	client    *rpc.CommonClient
-	txOpts    *bind.TransactOpts
-	eth       *eth.Eth
-	ethClient *ethclient.Client
-	address   common.Address
+	verifier   *Verifier
+	client     *rpc.CommonClient
+	txOpts     *bind.TransactOpts
+	rollupApi  *rollup.Rollup
+	gatewayApi *gateway.Gateway
+	ethClient  *ethclient.Client
+	address    common.Address
+	prover     *Prover
 }
 
 type Config struct {
@@ -80,19 +90,33 @@ func (r *RollupsPlugin) Bootstrap(cfg Config) error {
 	if err := grpcServer.Serve(lis); err != nil {
 		return err
 	}
+	timeout, _ := context.WithTimeout(context.Background(), time.Second)
+	if err := r.prover.Bootstrap(timeout); err != nil {
+		return err
+	}
 	log.Info("Rollups plugin bootstrapped")
 	return nil
 }
 
 func NewRollupsPlugin(s *Settings) *RollupsPlugin {
-	txOpts, instance, ethClient, addr := InitEth(s)
+	txOpts, rollupApi, gatewayApi, ethClient, addr := InitEth(s)
 	client := rpc.InitCommonClient(s.Rollups.Network.Address)
+
+	b := common.Hex2Bytes(s.Rollups.G_PrivateKey)
+	g_key := crypto_g.PkFromBytes(b)
+
+	txSend := tx.CreateTxSend(s.Rollups.URL)
+	verifier := NewVerifier(gatewayApi, ethClient, txSend, 10, 100, g_key)
+	prover := NewProver(txSend, g_key, client)
 	return &RollupsPlugin{
-		client:    client,
-		txOpts:    txOpts,
-		eth:       instance,
-		ethClient: ethClient,
-		address:   addr,
+		verifier:   verifier,
+		client:     client,
+		txOpts:     txOpts,
+		rollupApi:  rollupApi,
+		gatewayApi: gatewayApi,
+		ethClient:  ethClient,
+		address:    addr,
+		prover:     prover,
 	}
 }
 
@@ -116,6 +140,19 @@ func (r *RollupsPlugin) refreshNonce() {
 func (r *RollupsPlugin) OnBlockCommit(ctx context.Context, req *common_pb.OnBlockCommitRequest) (*common_pb.OnBlockCommitResponse, error) {
 	log.Debug("On block commit")
 
+	//Process pending deposits
+	var agreements []*common_pb.TransactionS
+	for _, t := range req.GetBlock().Txs {
+		if t.Type == int32(api.Settlement) && bytes.Equal([]byte("lock"), t.Data) {
+			r.watchPending(ctx, t)
+		}
+		if t.Type == int32(api.Agreement) {
+			agreements = append(agreements, t)
+		}
+	}
+
+	r.prover.Prove(ctx, agreements)
+
 	proposer, err := r.client.Pbc().GetProposerForView(ctx, &common_pb.GetProposerForViewRequest{
 		View: req.GetBlock().GetHeader().Height,
 	})
@@ -129,22 +166,22 @@ func (r *RollupsPlugin) OnBlockCommit(ctx context.Context, req *common_pb.OnBloc
 		return &common_pb.OnBlockCommitResponse{}, nil
 	}
 
-	contractHeight, err := r.eth.GetTopHeight(&bind.CallOpts{})
+	contractHeight, err := r.rollupApi.GetTopHeight(&bind.CallOpts{})
 	if err != nil {
 		log.Error("GetTopHeight failed", err)
 		return nil, err
 	}
 
-	if contractHeight > req.Block.Header.Height {
+	if int32(contractHeight) > req.GetBlock().GetHeader().Height {
 		log.Error("Ethereum rollups are further than gagarin chain")
 		return &common_pb.OnBlockCommitResponse{}, nil
 	}
 
 	var fork []*common_pb.BlockS
-	if req.Block.Header.Height > contractHeight+1 {
+	if req.Block.Header.Height > int32(contractHeight)+1 {
 		log.Infof("Loading fork starting at %v to %v", contractHeight, req.Block.Header.Height)
 		loaded, err := r.client.Pbc().GetFork(ctx, &common_pb.GetForkRequest{
-			Height:   contractHeight + 1,
+			Height:   int32(contractHeight) + 1,
 			HeadHash: req.Block.Header.ParentHash,
 		})
 		if err != nil {
@@ -178,7 +215,8 @@ func (r *RollupsPlugin) OnBlockCommit(ctx context.Context, req *common_pb.OnBloc
 		//spew.Dump("Sending rollup", emptyBytes(b.Data.Data))
 		log.Infof("Sending rollup at height %v", b.Header.Height)
 		r.refreshNonce()
-		_, err = r.eth.AddBlock(r.txOpts, h, emptyBytes(b.Data.Data))
+
+		_, err = r.rollupApi.AddBlock(r.txOpts, h, emptyBytes(b.Data.Data), make([]byte, 0))
 		if err != nil {
 			log.Error("AddBlock failed", err)
 			return nil, err
@@ -186,6 +224,31 @@ func (r *RollupsPlugin) OnBlockCommit(ctx context.Context, req *common_pb.OnBloc
 	}
 	log.Infof("%v sent %v rollups", common.Bytes2Hex(req.Me.GetAddress()), len(fork))
 	return &common_pb.OnBlockCommitResponse{}, nil
+}
+
+func (r *RollupsPlugin) watchPending(ctx context.Context, t *common_pb.TransactionS) {
+	tickChan := time.Tick(time.Second)
+	go func() {
+		for {
+			timeout, _ := context.WithTimeout(ctx, time.Second)
+			select {
+			case <-tickChan:
+				verified, err := r.verifier.verify(timeout, t)
+				if err != nil {
+					log.Error(err)
+					return
+				}
+
+				if verified {
+					log.Debugf("Tx %v is verified", common.Bytes2Hex(t.GetHash()))
+					return
+				}
+			case <-ctx.Done():
+				log.Debug("Context finished")
+				return
+			}
+		}
+	}()
 }
 
 func emptyBytes(data []byte) []byte {
@@ -330,7 +393,7 @@ func (r *RollupsPlugin) createRollups(receipts []*common_pb.Receipt) ([][]byte, 
 	return addresses, txs
 }
 
-func InitEth(s *Settings) (*bind.TransactOpts, *eth.Eth, *ethclient.Client, common.Address) {
+func InitEth(s *Settings) (*bind.TransactOpts, *rollup.Rollup, *gateway.Gateway, *ethclient.Client, common.Address) {
 	client, err := ethclient.Dial(s.Rollups.URL)
 	if err != nil {
 		log.Fatal(err)
@@ -368,10 +431,14 @@ func InitEth(s *Settings) (*bind.TransactOpts, *eth.Eth, *ethclient.Client, comm
 
 	address := common.HexToAddress(s.Rollups.ContractAddress)
 	log.Debug(address.Hex())
-	instance, err := eth.NewEth(address, client)
+	rollup_api, err := rollup.NewRollup(address, client)
+	if err != nil {
+		log.Fatal(err)
+	}
+	gateway_api, err := gateway.NewGateway(address, client)
 	if err != nil {
 		log.Fatal(err)
 	}
 	log.Info("Eth init completed")
-	return auth, instance, client, fromAddress
+	return auth, rollup_api, gateway_api, client, fromAddress
 }

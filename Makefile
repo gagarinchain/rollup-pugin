@@ -10,7 +10,8 @@ all: test build
 protos:
 	cd protobuff/protos && PATH=$(PATH):$(GOPATH)/bin protoc --go_out=$(PKGMAP):.. *.proto
 abi:
-	abigen --abi eth/rollup.abi --pkg eth --out eth/api.go
+	abigen --abi eth/rollup.abi --pkg rollup --out rollup/rollup_api.go
+	abigen --abi eth/gateway.abi --pkg gateway --out gateway/gateway_api.go
 build:
 	$(GOBUILD) -o $(BINARY_NAME) -v .
 	chmod 775 $(BINARY_NAME)
