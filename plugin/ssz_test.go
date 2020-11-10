@@ -9,7 +9,7 @@ import (
 	"github.com/gagarinchain/common/api"
 	c "github.com/gagarinchain/common/eth/common"
 	crypto_g "github.com/gagarinchain/common/eth/crypto"
-	"github.com/gagarinchain/network/blockchain/tx"
+	"github.com/gagarinchain/common/tx"
 	"github.com/prysmaticlabs/go-ssz"
 	"math/big"
 	"testing"
@@ -56,28 +56,6 @@ func TestSszSimple(t *testing.T) {
 
 	spew.Dump(err)
 	spew.Dump(marshal)
-}
-
-type Rollup struct {
-	Accounts     [][20]byte
-	Transactions []*Transaction
-}
-
-type Transaction struct {
-	From  int32
-	To    int32
-	Value uint64
-}
-
-type SendableHeader struct {
-	Height    uint32
-	Hash      [32]byte
-	TxHash    [32]byte
-	StateHash [32]byte
-	DataHash  [32]byte
-	QcHash    [32]byte
-	Parent    [32]byte
-	Timestamp uint64
 }
 
 func TestSszRollup(t *testing.T) {

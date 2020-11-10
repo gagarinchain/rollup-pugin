@@ -5,8 +5,7 @@ import (
 	"github.com/gagarinchain/common/api"
 	common2 "github.com/gagarinchain/common/eth/common"
 	common_pb "github.com/gagarinchain/common/protobuff"
-	pb "github.com/gagarinchain/rollup-plugin/protobuff"
-	"github.com/golang/protobuf/proto"
+	"github.com/prysmaticlabs/go-ssz"
 	"math/big"
 	"time"
 )
@@ -75,15 +74,15 @@ func Generate(s *Settings) {
 		return
 	}
 
-	h := []*pb.BlockHeader{h1, h2, h3}
-	r := []*pb.Rollup{b1, b2, b3}
+	h := []*SendableHeader{h1, h2, h3}
+	r := []*Rollup{b1, b2, b3}
 
 	for i := 0; i < 3; i++ {
-		header, err := proto.Marshal(h[i])
+		header, err := ssz.Marshal(h[i])
 		if err != nil {
 			log.Error(err)
 		}
-		rollup, err := proto.Marshal(r[i])
+		rollup, err := ssz.Marshal(r[i])
 		if err != nil {
 			log.Error(err)
 		}
@@ -93,7 +92,7 @@ func Generate(s *Settings) {
 	}
 }
 
-func CreateBlockRollup(height int32, receipt ...api.Receipt) (*pb.BlockHeader, *pb.Rollup, error) {
+func CreateBlockRollup(height int32, receipt ...api.Receipt) (*SendableHeader, *Rollup, error) {
 	plugin := &RollupsPlugin{}
 	var pbr []*common_pb.Receipt
 	for _, r := range receipt {
@@ -102,26 +101,26 @@ func CreateBlockRollup(height int32, receipt ...api.Receipt) (*pb.BlockHeader, *
 
 	a1, t1 := plugin.createRollups(pbr)
 
-	rollup1 := &pb.Rollup{
+	rollup1 := &Rollup{
 		Accounts:     a1,
 		Transactions: t1,
 	}
 
-	data1, err := proto.Marshal(rollup1)
+	data1, err := ssz.Marshal(rollup1)
 	if err != nil {
 		log.Error(err)
 		return nil, nil, err
 	}
 
-	h1 := &pb.BlockHeader{
-		Hash:       crypto.Keccak256([]byte("Hash")),
-		ParentHash: crypto.Keccak256([]byte("ParentHash")),
-		QcHash:     crypto.Keccak256([]byte("QcHash")),
-		DataHash:   crypto.Keccak256(data1),
-		TxHash:     crypto.Keccak256([]byte("TxHash")),
-		StateHash:  crypto.Keccak256([]byte("StateHash")),
-		Height:     height,
-		Timestamp:  time.Now().Unix(),
+	h1 := &SendableHeader{
+		Hash:      common2.BytesToHash(crypto.Keccak256([]byte("Hash"))),
+		Parent:    common2.BytesToHash(crypto.Keccak256([]byte("ParentHash"))),
+		QcHash:    common2.BytesToHash(crypto.Keccak256([]byte("QcHash"))),
+		DataHash:  common2.BytesToHash(crypto.Keccak256(data1)),
+		TxHash:    common2.BytesToHash(crypto.Keccak256([]byte("TxHash"))),
+		StateHash: common2.BytesToHash(crypto.Keccak256([]byte("StateHash"))),
+		Height:    uint32(height),
+		Timestamp: uint64(time.Now().UnixNano()),
 	}
 
 	return h1, rollup1, err

@@ -11,15 +11,15 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/gagarinchain/common/api"
+	common2 "github.com/gagarinchain/common/eth/common"
 	crypto_g "github.com/gagarinchain/common/eth/crypto"
 	common_pb "github.com/gagarinchain/common/protobuff"
 	"github.com/gagarinchain/common/rpc"
-	"github.com/gagarinchain/network/blockchain/tx"
+	"github.com/gagarinchain/common/tx"
 	"github.com/gagarinchain/rollup-plugin/gateway"
-	pb "github.com/gagarinchain/rollup-plugin/protobuff"
 	"github.com/gagarinchain/rollup-plugin/rollup"
-	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
+	"github.com/prysmaticlabs/go-ssz"
 	"google.golang.org/grpc"
 	"math/big"
 	"net"
@@ -48,6 +48,28 @@ type Settings struct {
 	} `yaml:"Rollups"`
 }
 
+type Rollup struct {
+	Accounts     [][20]byte
+	Transactions []*Transaction
+}
+
+type Transaction struct {
+	From  int32
+	To    int32
+	Value uint64
+}
+
+type SendableHeader struct {
+	Height    uint32
+	Hash      [32]byte
+	TxHash    [32]byte
+	StateHash [32]byte
+	DataHash  [32]byte
+	QcHash    [32]byte
+	Parent    [32]byte
+	Timestamp uint64
+}
+
 type RollupsPlugin struct {
 	common_pb.OnBlockCommitServer
 	common_pb.OnReceiveProposalServer
@@ -59,7 +81,6 @@ type RollupsPlugin struct {
 	gatewayApi *gateway.Gateway
 	ethClient  *ethclient.Client
 	address    common.Address
-	prover     *Prover
 }
 
 type Config struct {
@@ -87,13 +108,11 @@ func (r *RollupsPlugin) Bootstrap(cfg Config) error {
 	common_pb.RegisterOnBlockCommitServer(grpcServer, r)
 	common_pb.RegisterOnReceiveProposalServer(grpcServer, r)
 	common_pb.RegisterOnNewBlockCreatedServer(grpcServer, r)
-	if err := grpcServer.Serve(lis); err != nil {
-		return err
-	}
-	timeout, _ := context.WithTimeout(context.Background(), time.Second)
-	if err := r.prover.Bootstrap(timeout); err != nil {
-		return err
-	}
+	go func() {
+		if err := grpcServer.Serve(lis); err != nil {
+			log.Error(err)
+		}
+	}()
 	log.Info("Rollups plugin bootstrapped")
 	return nil
 }
@@ -105,9 +124,8 @@ func NewRollupsPlugin(s *Settings) *RollupsPlugin {
 	b := common.Hex2Bytes(s.Rollups.G_PrivateKey)
 	g_key := crypto_g.PkFromBytes(b)
 
-	txSend := tx.CreateTxSend(s.Rollups.URL)
+	txSend := tx.CreateTxSend(s.Rollups.Network.Address)
 	verifier := NewVerifier(gatewayApi, ethClient, txSend, 10, 100, g_key)
-	prover := NewProver(txSend, g_key, client)
 	return &RollupsPlugin{
 		verifier:   verifier,
 		client:     client,
@@ -116,7 +134,6 @@ func NewRollupsPlugin(s *Settings) *RollupsPlugin {
 		gatewayApi: gatewayApi,
 		ethClient:  ethClient,
 		address:    addr,
-		prover:     prover,
 	}
 }
 
@@ -132,7 +149,6 @@ func (r *RollupsPlugin) refreshNonce() {
 	r.txOpts.Nonce = big.NewInt(int64(nonce))
 }
 
-//TODO I must be proposer here, validate it
 //When block is committed, we send it's rollup to ethereum
 //1. Query top height stored on Ethereum
 //2. Load fork between topHeight and commitedHeight
@@ -141,17 +157,11 @@ func (r *RollupsPlugin) OnBlockCommit(ctx context.Context, req *common_pb.OnBloc
 	log.Debug("On block commit")
 
 	//Process pending deposits
-	var agreements []*common_pb.TransactionS
 	for _, t := range req.GetBlock().Txs {
 		if t.Type == int32(api.Settlement) && bytes.Equal([]byte("lock"), t.Data) {
 			r.watchPending(ctx, t)
 		}
-		if t.Type == int32(api.Agreement) {
-			agreements = append(agreements, t)
-		}
 	}
-
-	r.prover.Prove(ctx, agreements)
 
 	proposer, err := r.client.Pbc().GetProposerForView(ctx, &common_pb.GetProposerForViewRequest{
 		View: req.GetBlock().GetHeader().Height,
@@ -195,28 +205,42 @@ func (r *RollupsPlugin) OnBlockCommit(ctx context.Context, req *common_pb.OnBloc
 	}
 
 	for _, b := range fork {
-		pbBlock := &pb.BlockHeader{
-			Hash:       b.Header.Hash,
-			ParentHash: b.Header.ParentHash,
-			QcHash:     b.Header.QcHash,
-			DataHash:   b.Header.DataHash,
-			TxHash:     b.Header.TxHash,
-			StateHash:  b.Header.StateHash,
-			Height:     b.Header.Height,
-			Timestamp:  b.Header.Timestamp,
+		var hash [32]byte
+		copy(hash[:], b.GetHeader().GetHash()[:32])
+		var txHash [32]byte
+		copy(txHash[:], b.GetHeader().GetTxHash()[:32])
+		var stateHash [32]byte
+		copy(stateHash[:], b.GetHeader().GetStateHash()[:32])
+		var dataHash [32]byte
+		copy(dataHash[:], b.GetHeader().GetDataHash()[:32])
+		var qcHash [32]byte
+		copy(qcHash[:], b.GetHeader().GetQcHash()[:32])
+		var parentHash [32]byte
+		copy(parentHash[:], b.GetHeader().GetParentHash()[:32])
+
+		h := &SendableHeader{
+			Height:    uint32(b.GetHeader().GetHeight()),
+			Hash:      hash,
+			TxHash:    txHash,
+			StateHash: stateHash,
+			DataHash:  dataHash,
+			QcHash:    qcHash,
+			Parent:    parentHash,
+			Timestamp: uint64(b.GetHeader().GetTimestamp()),
 		}
 
-		h, err := proto.Marshal(pbBlock)
+		mh, err := ssz.Marshal(h)
 		if err != nil {
 			log.Error(err)
 			return nil, err
 		}
-		//spew.Dump("Sending header", pbBlock)
-		//spew.Dump("Sending rollup", emptyBytes(b.Data.Data))
+		spew.Dump("Sending header", h)
+		log.Debug(common2.Bytes2Hex(mh))
+		spew.Dump("Sending rollup", emptyBytes(b.Data.Data))
 		log.Infof("Sending rollup at height %v", b.Header.Height)
 		r.refreshNonce()
 
-		_, err = r.rollupApi.AddBlock(r.txOpts, h, emptyBytes(b.Data.Data), make([]byte, 0))
+		_, err = r.rollupApi.AddBlock(r.txOpts, mh, emptyBytes(b.Data.Data), make([]byte, 0))
 		if err != nil {
 			log.Error("AddBlock failed", err)
 			return nil, err
@@ -271,44 +295,47 @@ func (r *RollupsPlugin) AfterProposedBlockAdded(ctx context.Context, in *common_
 	log.Debugf("After proposed block %v added", common.Bytes2Hex(in.Proposal.Block.Header.Hash))
 	mapping, transactions := r.createRollups(in.Receipts)
 
-	rm := &pb.Rollup{}
-	if err := proto.Unmarshal(in.GetProposal().GetBlock().GetData().GetData(), rm); err != nil {
-		log.Error("Bad received rollup format", err)
-		return nil, err
-	}
-	if len(mapping) != len(rm.Accounts) || len(transactions) != len(rm.Transactions) {
-		err := errors.New("lengths of rollups are not equal")
-		log.Error(err)
-		return nil, err
-	}
+	rm := &Rollup{}
+	if len(in.GetProposal().GetBlock().GetData().GetData()) > 0 {
+		if err := ssz.Unmarshal(in.GetProposal().GetBlock().GetData().GetData(), rm); err != nil {
+			log.Error("Bad received rollup format", err)
+			return nil, err
+		}
+		if len(mapping) != len(rm.Accounts) || len(transactions) != len(rm.Transactions) {
+			err := errors.New("lengths of rollups are not equal")
+			log.Debug("Lengths of rollups structures do not match(cr:r), accounts[%v:%v], transactions:[%v:%v]",
+				len(mapping), len(rm.Accounts), len(transactions), len(rm.Transactions))
+			return nil, err
+		}
 
-	//we must have exact the same rollups, probably with permutated mappings, so let's transform mappings and validate transactions
-	transformation := make(map[int32]int32)
-	for i, v := range mapping {
-		found := false
-		for i1, v1 := range rm.Accounts {
-			if bytes.Equal(v, v1) {
-				transformation[int32(i)] = int32(i1)
-				found = true
-				break
+		//we must have exact the same rollups, probably with permutated mappings, so let's transform mappings and validate transactions
+		transformation := make(map[int32]int32)
+		for i, v := range mapping {
+			found := false
+			for i1, v1 := range rm.Accounts {
+				if bytes.Equal(v[:], v1[:]) {
+					transformation[int32(i)] = int32(i1)
+					found = true
+					break
+				}
+			}
+			if !found {
+				log.Errorf("No address %v:%v is found in mapping", i, v)
+				return nil, errors.New("mappings are not the same")
 			}
 		}
-		if !found {
-			log.Errorf("No address %v:%v is found in mapping", i, v)
-			return nil, errors.New("mappings are not the same")
-		}
-	}
-	for _, txs := range transactions {
-		found := false
-		for _, txs1 := range rm.Transactions {
-			if transformation[txs.From] == txs1.From && transformation[txs.To] == txs1.To && txs.Value == txs1.Value {
-				found = true
-				break
+		for _, txs := range transactions {
+			found := false
+			for _, txs1 := range rm.Transactions {
+				if transformation[txs.From] == txs1.From && transformation[txs.To] == txs1.To && txs.Value == txs1.Value {
+					found = true
+					break
+				}
 			}
-		}
-		if !found {
-			log.Errorf("not found transaction %v/%v/%v in rollup", txs.From, txs.To, txs.Value)
-			return nil, errors.New("bad rollup")
+			if !found {
+				log.Errorf("not found transaction %v/%v/%v in rollup", txs.From, txs.To, txs.Value)
+				return nil, errors.New("bad rollup")
+			}
 		}
 	}
 
@@ -337,15 +364,15 @@ func (r *RollupsPlugin) OnNewBlockCreated(ctx context.Context, in *common_pb.OnN
 	}
 
 	addresses, txs := r.createRollups(in.Receipts)
-	rollup := &pb.Rollup{
+	roll := &Rollup{
 		Accounts:     addresses,
 		Transactions: txs,
 	}
 
 	log.Infof("Created rollup for %v block", common.Bytes2Hex(in.Block.Header.Hash))
-	spew.Dump(rollup)
+	spew.Dump(roll)
 
-	marshal, err := proto.Marshal(rollup)
+	marshal, err := ssz.Marshal(roll)
 	if err != nil {
 		return nil, err
 	}
@@ -356,18 +383,18 @@ func (r *RollupsPlugin) OnNewBlockCreated(ctx context.Context, in *common_pb.OnN
 	}, nil
 }
 
-func (r *RollupsPlugin) createRollups(receipts []*common_pb.Receipt) ([][]byte, []*pb.Transaction) {
+func (r *RollupsPlugin) createRollups(receipts []*common_pb.Receipt) ([][20]byte, []*Transaction) {
 	spew.Dump("Creating rollup for", receipts)
-	var addresses [][]byte
-	var txs []*pb.Transaction
+	var addresses [][20]byte
+	var txs []*Transaction
 	for _, receipt := range receipts {
 		//add addresses to map
 		from, to := int32(-1), int32(-1)
 		for i, v := range addresses {
-			if bytes.Equal(v, receipt.GetFrom()) {
+			if bytes.Equal(v[:], receipt.GetFrom()) {
 				from = int32(i)
 			}
-			if bytes.Equal(v, receipt.GetTo()) {
+			if bytes.Equal(v[:], receipt.GetTo()) {
 				to = int32(i)
 			}
 			if from > -1 && to > -1 {
@@ -375,19 +402,19 @@ func (r *RollupsPlugin) createRollups(receipts []*common_pb.Receipt) ([][]byte, 
 			}
 		}
 		if from == -1 && !bytes.Equal(receipt.GetFrom(), common.Address{}.Bytes()) {
-			addresses = append(addresses, receipt.GetFrom())
+			addresses = append(addresses, common2.BytesToAddress(receipt.GetFrom()))
 			from = int32(len(addresses) - 1)
 		}
 		if to == -1 && !bytes.Equal(receipt.GetTo(), common.Address{}.Bytes()) {
-			addresses = append(addresses, receipt.GetTo())
+			addresses = append(addresses, common2.BytesToAddress(receipt.GetTo()))
 			to = int32(len(addresses) - 1)
 		}
-		tx := &pb.Transaction{
+		t := &Transaction{
 			From:  from,
 			To:    to,
-			Value: receipt.GetValue(),
+			Value: uint64(receipt.GetValue()),
 		}
-		txs = append(txs, tx)
+		txs = append(txs, t)
 
 	}
 	return addresses, txs

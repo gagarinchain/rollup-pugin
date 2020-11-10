@@ -10,7 +10,7 @@ import (
 	c "github.com/gagarinchain/common/eth/common"
 	crypto_g "github.com/gagarinchain/common/eth/crypto"
 	pb "github.com/gagarinchain/common/protobuff"
-	"github.com/gagarinchain/network/blockchain/tx"
+	"github.com/gagarinchain/common/tx"
 	"github.com/gagarinchain/rollup-plugin/gateway"
 	"math/big"
 )
@@ -74,7 +74,7 @@ func (a *Verifier) verify(ctx context.Context, tpb *pb.TransactionS) (bool, erro
 		opts := &tx.TransactOpts{
 			From:       c.Address{},
 			PrivateKey: a.pk,
-			Fee:        big.NewInt(1),
+			Fee:        big.NewInt(api.DefaultAgreementFee),
 			Context:    ctx,
 		}
 		if err := a.txSend.Transact(opts, api.Agreement, c.BytesToAddress(tpb.To), big.NewInt(tpb.Value), nil); err != nil {
